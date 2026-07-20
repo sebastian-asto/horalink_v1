@@ -1,0 +1,77 @@
+# HoraLink V1
+
+HoraLink es un horómetro autónomo de un canal basado en ESP32-C3. Registra en
+memoria no volátil el tiempo durante el cual permanece activo el equipo
+monitoreado, funciona normalmente en deep sleep y entrega la lectura a una
+aplicación Android mediante publicidad BLE no conectable.
+
+## Estructura del proyecto
+
+| Carpeta | Contenido |
+|---|---|
+| `horalink_V1_esp32c3` | Firmware ESP-IDF 5.5.4 para el ESP32-C3 |
+| `app_horalink_flutter` | Aplicación Flutter para Android |
+
+## Funcionamiento general
+
+1. GPIO6 refleja el estado estable del canal: `LOW` apagado y `HIGH` activo.
+2. Cada cambio genera en GPIO4 un pulso ascendente de aproximadamente 36 ms.
+3. GPIO4 despierta al ESP32-C3, que verifica GPIO6 y actualiza el registro NVS.
+4. Mientras el canal está activo, el tiempo se calcula usando el reloj RTC y
+   el cristal externo de 32.768 kHz.
+5. GPIO5 despierta el equipo por una pulsación manual.
+6. Al despertar por GPIO5 se lee el MAX17048 y se publican por BLE durante 10
+   segundos el tiempo acumulado, la batería y el estado del canal.
+7. La aplicación Android escucha esa publicidad sin conectarse ni emparejarse.
+8. Al finalizar, NimBLE se detiene y el ESP32-C3 vuelve a deep sleep.
+
+Durante los 10 segundos de publicidad el firmware continúa vigilando GPIO6.
+Si el canal cambia en esa ventana, la transición también se procesa y se guarda
+en NVS.
+
+## Hardware utilizado
+
+| Dispositivo o señal | Conexión |
+|---|---|
+| Cristal RTC de 32.768 kHz | GPIO0 y GPIO1 |
+| MAX17048 | I2C `0x36`, SDA GPIO2, SCL GPIO8 |
+| Alimentación portátil | Batería de 3000 mAh con carga USB en la PCB |
+| Pulso de cambio del canal | GPIO4, activo en HIGH |
+| Botón de consulta | GPIO5, activo en HIGH |
+| Estado del canal 1 | GPIO6 |
+
+SDA y SCL requieren pull-up externos a 3.3 V. Los pull-up internos del ESP32-C3
+están desactivados en el firmware.
+
+## Datos BLE
+
+HoraLink utiliza Service Data con UUID:
+
+```text
+7e57d004-2b97-0e7a-e511-9b9941e4a8f2
+```
+
+La trama incluye versión del protocolo, estado del canal, validez de batería,
+porcentaje, voltaje en milivoltios y tiempo acumulado en segundos. La
+publicidad es legacy, no conectable y cabe en los 31 bytes disponibles.
+
+## Inicio rápido
+
+Firmware:
+
+```text
+cd horalink_V1_esp32c3
+idf.py build
+idf.py -p COM10 flash monitor
+```
+
+Aplicación Android:
+
+```text
+cd app_horalink_flutter
+flutter pub get
+flutter run
+```
+
+Consulta los README de cada carpeta para conocer la compilación, estructura,
+trama BLE y secuencia de pruebas con mayor detalle.

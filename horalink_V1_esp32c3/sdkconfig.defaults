@@ -1,0 +1,22 @@
+# Hardware target
+CONFIG_IDF_TARGET="esp32c3"
+
+# The PCB has a 32.768 kHz crystal on GPIO0/XTAL_32K_P and
+# GPIO1/XTAL_32K_N. Use it as the RTC slow-clock source.
+CONFIG_RTC_CLK_SRC_EXT_CRYS=y
+CONFIG_RTC_CLK_CAL_CYCLES=3000
+
+# 4 MB flash with two OTA application slots and SPIFFS.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/partitions.csv"
+
+# BLE broadcaster only. The phone reads the legacy advertising payload;
+# HoraLink never accepts a connection.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+# CONFIG_BT_NIMBLE_ROLE_CENTRAL is not set
+CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
+CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
+# CONFIG_BT_NIMBLE_ROLE_OBSERVER is not set
+# CONFIG_BT_NIMBLE_GAP_SERVICE is not set
