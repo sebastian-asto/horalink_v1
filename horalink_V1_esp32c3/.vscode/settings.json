@@ -14,6 +14,6 @@
     "--query-driver=**",
     "--compile-commands-dir=d:\\PROJECT\\8.HORALINK\\Code_ESP_IDF_HoraLink\\horalink_V1_esp32c3\\build"
   ],
-  "idf.portWin": "COM10",
+  "idf.portWin": "COM8",
   "idf.flashType": "UART"
 }

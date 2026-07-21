@@ -3,7 +3,8 @@
 HoraLink es un horómetro autónomo de un canal basado en ESP32-C3. Registra en
 memoria no volátil el tiempo durante el cual permanece activo el equipo
 monitoreado, funciona normalmente en deep sleep y entrega la lectura a una
-aplicación Android mediante publicidad BLE no conectable.
+aplicación Android mediante publicidad BLE y permite una configuración GATT
+temporal autorizada con el botón físico.
 
 ## Estructura del proyecto
 
@@ -11,6 +12,18 @@ aplicación Android mediante publicidad BLE no conectable.
 |---|---|
 | `horalink_V1_esp32c3` | Firmware ESP-IDF 5.5.4 para el ESP32-C3 |
 | `app_horalink_flutter` | Aplicación Flutter para Android |
+
+## Familia de productos en la aplicación
+
+La aplicación móvil presenta un selector de producto durante el primer inicio:
+
+- **HoraLink BLE** abre el tablero, la lectura de publicidad y la configuración
+  GATT implementadas actualmente.
+- **HoraLink LoRa** aparece identificado como **Próximamente** y queda preparado
+  para incorporar su flujo cuando el hardware y el protocolo estén terminados.
+
+La selección BLE se recuerda localmente. Desde el icono de cuadrícula del
+tablero se puede volver al selector sin borrar los datos del horómetro.
 
 ## Funcionamiento general
 
@@ -22,8 +35,11 @@ aplicación Android mediante publicidad BLE no conectable.
 5. GPIO5 despierta el equipo por una pulsación manual.
 6. Al despertar por GPIO5 se lee el MAX17048 y se publican por BLE durante 10
    segundos el tiempo acumulado, la batería y el estado del canal.
-7. La aplicación Android escucha esa publicidad sin conectarse ni emparejarse.
-8. Al finalizar, NimBLE se detiene y el ESP32-C3 vuelve a deep sleep.
+7. La aplicación puede conectarse dentro de esa ventana para cambiar el nombre
+   o solicitar un reinicio del horómetro.
+8. Una conexión amplía la sesión hasta 60 segundos. El reinicio requiere una
+   segunda pulsación física dentro de 15 segundos.
+9. Al finalizar, NimBLE se detiene y el ESP32-C3 vuelve a deep sleep.
 
 Durante los 10 segundos de publicidad el firmware continúa vigilando GPIO6.
 Si el canal cambia en esa ventana, la transición también se procesa y se guarda
@@ -53,7 +69,8 @@ HoraLink utiliza Service Data con UUID:
 
 La trama incluye versión del protocolo, estado del canal, validez de batería,
 porcentaje, voltaje en milivoltios y tiempo acumulado en segundos. La
-publicidad es legacy, no conectable y cabe en los 31 bytes disponibles.
+publicidad legacy cabe en los 31 bytes disponibles. Es conectable únicamente
+durante la sesión física abierta mediante GPIO5.
 
 ## Inicio rápido
 

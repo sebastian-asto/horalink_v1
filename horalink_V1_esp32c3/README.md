@@ -61,12 +61,13 @@ despertar por nivel alto y entra en deep sleep.
 1. GPIO5 despierta al ESP32-C3.
 2. Se calcula el tiempo efectivo, incluyendo una sesión actualmente activa.
 3. Se leen `VCELL` y `SOC` del MAX17048 en la dirección I2C `0x36`.
-4. NimBLE inicia publicidad legacy no conectable durante 10 segundos.
+4. NimBLE inicia publicidad legacy conectable durante 10 segundos.
 5. GPIO6 se muestrea cada 20 ms; un cambio requiere tres muestras iguales para
    ser aceptado y guardado.
-6. Se detiene la publicidad, se libera NimBLE y se espera que GPIO4/GPIO5
-   regresen a LOW.
-7. El ESP32-C3 entra nuevamente en deep sleep.
+6. Si la app se conecta, la sesión se amplía hasta 60 segundos y habilita el
+   servicio GATT de configuración.
+7. Se detiene BLE, se libera NimBLE y se espera que GPIO4/GPIO5 regresen a LOW.
+8. El ESP32-C3 entra nuevamente en deep sleep.
 
 ## Registro NVS
 
@@ -80,8 +81,9 @@ El namespace `horometer` contiene un único blob versionado con:
 | `transition_count` | `uint32_t` | Número de transiciones confirmadas |
 
 La flash solamente se escribe al crear el registro, corregir una sesión cuyo
-RTC se haya reiniciado o confirmar una transición. Consultar con el botón no
-escribe NVS si GPIO6 permanece sin cambios.
+RTC se haya reiniciado, confirmar una transición, cambiar el nombre o confirmar
+físicamente un reinicio. El nombre se guarda por separado en el namespace
+`device_cfg`, por lo que reiniciar las horas no lo elimina.
 
 ## MAX17048
 
@@ -114,9 +116,23 @@ Payload HoraLink de 10 bytes:
 | 3–4 | Voltaje | Milivoltios, `uint16` little-endian |
 | 5–9 | Horómetro | Segundos acumulados, entero de 40 bits little-endian |
 
-La publicidad se repite aproximadamente cada 100–120 ms. Se usa
-`BLE_GAP_CONN_MODE_NON`, por lo que HoraLink no acepta conexiones ni
-emparejamiento.
+La publicidad se repite aproximadamente cada 100–120 ms y utiliza
+`BLE_GAP_CONN_MODE_UND`. La conexión solo está disponible después de GPIO5;
+no se conserva un emparejamiento permanente.
+
+## Servicio GATT de configuración
+
+| Elemento | UUID | Operaciones |
+|---|---|---|
+| Servicio HoraLink | `7e57d004-2b97-0e7a-e511-9b9941e4a8f2` | Descubrimiento |
+| Nombre | `7e57d005-2b97-0e7a-e511-9b9941e4a8f2` | Lectura y escritura UTF-8 |
+| Reinicio | `7e57d006-2b97-0e7a-e511-9b9941e4a8f2` | Escritura de solicitud y lectura de estado |
+
+Estados de reinicio: `0` inactivo, `1` esperando botón físico, `2` completado y
+`3` expirado. La orden GATT solo deja el reinicio pendiente; el borrado se
+ejecuta cuando GPIO5 vuelve a producir un flanco ascendente dentro de 15
+segundos. El nuevo registro parte del estado actual de GPIO6, conserva el nombre
+y no borra la partición NVS completa.
 
 ## Estructura del código
 
@@ -128,6 +144,7 @@ main/
     ├── board/board_pins.h
     ├── drivers/max17048/max17048.c
     ├── horometer/horometer_app.c
+    ├── storage/device_config_storage.c
     └── storage/horometer_storage.c
 ```
 
@@ -170,6 +187,7 @@ placa, temperatura, instrumento, estado del MAX17048 y componentes externos.
 3. Desactiva el canal y verifica la duración y el acumulado.
 4. En la aplicación móvil pulsa **Buscar HoraLink**.
 5. Pulsa el botón físico GPIO5.
-6. Confirma en consola la lectura del MAX17048, el inicio de publicidad y el
-   mensaje de finalización después de 10 segundos.
-7. Comprueba en la app que tiempo, batería, voltaje y estado coinciden.
+6. Abre **Configurar HoraLink** antes de que finalicen los 10 segundos.
+7. Prueba el cambio de nombre y confirma que vuelve a aparecer en la app.
+8. Solicita reiniciar el contador, acepta el diálogo y pulsa nuevamente GPIO5.
+9. Confirma que la app muestra cero y que el nombre se conserva.

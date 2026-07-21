@@ -9,6 +9,7 @@
 #include "app/ble/horalink_ble.h"
 #include "app/board/board_pins.h"
 #include "app/drivers/max17048/max17048.h"
+#include "app/storage/device_config_storage.h"
 #include "app/storage/horometer_storage.h"
 #include "driver/gpio.h"
 #include "esp_check.h"
@@ -173,7 +174,26 @@ static void log_current_summary(const horometer_record_t *record, int64_t now_ms
     }
 }
 
-static void run_button_advertising(horometer_record_t *record)
+static void reset_hour_counter(horometer_record_t *record)
+{
+    const uint8_t current_state =
+        (uint8_t)(gpio_get_level(HORALINK_PIN_CH1_STATE) != 0);
+    const int64_t now_ms = get_rtc_time_ms();
+
+    *record = (horometer_record_t) {
+        .last_state = current_state,
+        .session_start_ms = current_state != 0U ? now_ms : 0,
+        .accumulated_ms = 0U,
+        .transition_count = 0U,
+    };
+    ESP_ERROR_CHECK(horometer_storage_save(record));
+    ESP_LOGW(TAG,
+             "Contador reiniciado por confirmacion fisica; estado inicial=%u.",
+             current_state);
+}
+
+static void run_button_advertising(horometer_record_t *record,
+                                   const char *device_name)
 {
     max17048_measurement_t battery = {0};
     const esp_err_t battery_err = max17048_read(&battery);
@@ -204,7 +224,7 @@ static void run_button_advertising(horometer_record_t *record)
              snapshot.battery_valid ? "valida" : "no disponible",
              snapshot.channel_running ? "ENCENDIDO" : "APAGADO");
 
-    const esp_err_t ble_err = horalink_ble_start(&snapshot);
+    const esp_err_t ble_err = horalink_ble_start(&snapshot, device_name);
     if (ble_err != ESP_OK) {
         ESP_LOGE(TAG, "No se pudo iniciar BLE: %s", esp_err_to_name(ble_err));
         return;
@@ -214,12 +234,59 @@ static void run_button_advertising(horometer_record_t *record)
      * samples rejects short disturbances without losing a real stable state. */
     uint8_t candidate_state = record->last_state;
     uint8_t stable_samples = 0U;
-    const int64_t advertising_start_us = esp_timer_get_time();
-    const int64_t advertising_duration_us =
-        (int64_t)HORALINK_BLE_ADVERTISING_TIME_MS * 1000LL;
+    int64_t session_deadline_us = esp_timer_get_time() +
+        ((int64_t)HORALINK_BLE_ADVERTISING_TIME_MS * 1000LL);
+    int64_t reset_deadline_us = 0;
+    bool connection_extended = false;
+    bool button_armed = gpio_get_level(HORALINK_PIN_BUTTON_WAKE) == 0;
+    bool previous_button_level =
+        gpio_get_level(HORALINK_PIN_BUTTON_WAKE) != 0;
 
-    while ((esp_timer_get_time() - advertising_start_us) <
-           advertising_duration_us) {
+    while (esp_timer_get_time() < session_deadline_us) {
+        const int64_t loop_time_us = esp_timer_get_time();
+        if (horalink_ble_is_connected() && !connection_extended) {
+            connection_extended = true;
+            session_deadline_us = loop_time_us +
+                ((int64_t)HORALINK_BLE_CONNECTED_TIME_MS * 1000LL);
+            ESP_LOGI(TAG, "Configuracion extendida por 60 segundos.");
+        }
+
+        char updated_name[HORALINK_DEVICE_NAME_MAX_BYTES + 1U] = {0};
+        if (horalink_ble_take_name_update(updated_name,
+                                          sizeof(updated_name))) {
+            ESP_ERROR_CHECK(device_config_save_name(updated_name));
+        }
+
+        if (horalink_ble_take_reset_request()) {
+            reset_deadline_us = loop_time_us +
+                ((int64_t)HORALINK_RESET_CONFIRM_TIME_MS * 1000LL);
+            if (session_deadline_us < reset_deadline_us) {
+                session_deadline_us = reset_deadline_us;
+            }
+            button_armed = gpio_get_level(HORALINK_PIN_BUTTON_WAKE) == 0;
+            ESP_LOGW(TAG,
+                     "Pulse nuevamente GPIO5 antes de 15 s para confirmar el reinicio.");
+        }
+
+        const bool button_level =
+            gpio_get_level(HORALINK_PIN_BUTTON_WAKE) != 0;
+        if (!button_level) {
+            button_armed = true;
+        }
+        if ((reset_deadline_us != 0) && button_armed && button_level &&
+            !previous_button_level) {
+            reset_hour_counter(record);
+            horalink_ble_set_reset_status(HORALINK_RESET_COMPLETED);
+            reset_deadline_us = 0;
+            button_armed = false;
+        } else if ((reset_deadline_us != 0) &&
+                   (loop_time_us >= reset_deadline_us)) {
+            ESP_LOGW(TAG, "Reinicio cancelado: no hubo confirmacion fisica.");
+            horalink_ble_set_reset_status(HORALINK_RESET_EXPIRED);
+            reset_deadline_us = 0;
+        }
+        previous_button_level = button_level;
+
         const uint8_t sampled_state =
             (uint8_t)(gpio_get_level(HORALINK_PIN_CH1_STATE) != 0);
         if (sampled_state == record->last_state) {
@@ -243,7 +310,7 @@ static void run_button_advertising(horometer_record_t *record)
     }
 
     horalink_ble_stop();
-    ESP_LOGI(TAG, "Ventana de publicidad BLE de 10 s terminada.");
+    ESP_LOGI(TAG, "Sesion BLE terminada; regresando a bajo consumo.");
 }
 
 static void wait_until_wakeup_inputs_are_low(void)
@@ -304,8 +371,11 @@ void horometer_app_run(void)
     }
 
     if ((wake_mask & (1ULL << HORALINK_PIN_BUTTON_WAKE)) != 0) {
+        char device_name[HORALINK_DEVICE_NAME_MAX_BYTES + 1U] = {0};
+        ESP_ERROR_CHECK(device_config_load_name(device_name,
+                                                 sizeof(device_name)));
         log_current_summary(&record, now_ms);
-        run_button_advertising(&record);
+        run_button_advertising(&record, device_name);
     }
 
     /* A HIGH level is the wake condition. Sleeping before it returns LOW

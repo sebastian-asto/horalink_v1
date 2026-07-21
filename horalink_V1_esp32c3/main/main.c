@@ -4,3 +4,4 @@ void app_main(void)
 {
     horometer_app_run();
 }
+

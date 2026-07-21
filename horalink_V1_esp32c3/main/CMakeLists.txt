@@ -4,6 +4,7 @@ idf_component_register(
     "app/ble/horalink_ble.c"
     "app/drivers/max17048/max17048.c"
     "app/horometer/horometer_app.c"
+    "app/storage/device_config_storage.c"
     "app/storage/horometer_storage.c"
     INCLUDE_DIRS "."
     REQUIRES

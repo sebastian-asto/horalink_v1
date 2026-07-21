@@ -21,6 +21,26 @@ class HoraLinkMeasurement {
   final int rssi;
   final DateTime receivedAt;
 
+  HoraLinkMeasurement copyWith({
+    int? accumulatedSeconds,
+    bool? channelRunning,
+    bool? batteryValid,
+    int? batteryPercent,
+    int? batteryMillivolts,
+    int? rssi,
+    DateTime? receivedAt,
+  }) {
+    return HoraLinkMeasurement(
+      accumulatedSeconds: accumulatedSeconds ?? this.accumulatedSeconds,
+      channelRunning: channelRunning ?? this.channelRunning,
+      batteryValid: batteryValid ?? this.batteryValid,
+      batteryPercent: batteryPercent ?? this.batteryPercent,
+      batteryMillivolts: batteryMillivolts ?? this.batteryMillivolts,
+      rssi: rssi ?? this.rssi,
+      receivedAt: receivedAt ?? this.receivedAt,
+    );
+  }
+
   static HoraLinkMeasurement? fromPayload(Uint8List payload, int rssi) {
     if (payload.length < 10 || payload[0] != 1) {
       return null;
@@ -44,13 +64,17 @@ class HoraLinkMeasurement {
   }
 
   String get formattedRuntime {
-    final days = accumulatedSeconds ~/ 86400;
-    final hours = (accumulatedSeconds ~/ 3600) % 24;
-    final minutes = (accumulatedSeconds ~/ 60) % 60;
-    final seconds = accumulatedSeconds % 60;
-    return '${days.toString().padLeft(2, '0')} días  '
-        '${hours.toString().padLeft(2, '0')}:'
-        '${minutes.toString().padLeft(2, '0')}:'
-        '${seconds.toString().padLeft(2, '0')}';
+    return '${runtimeMonths.toString().padLeft(2, '0')} meses  '
+        '${runtimeDays.toString().padLeft(2, '0')} días  '
+        '${runtimeHours.toString().padLeft(2, '0')}:'
+        '${runtimeMinutes.toString().padLeft(2, '0')}:'
+        '${runtimeSeconds.toString().padLeft(2, '0')}';
   }
+
+  // Para el horómetro, un mes de mantenimiento equivale a 30 días.
+  int get runtimeMonths => accumulatedSeconds ~/ (30 * 86400);
+  int get runtimeDays => (accumulatedSeconds ~/ 86400) % 30;
+  int get runtimeHours => (accumulatedSeconds ~/ 3600) % 24;
+  int get runtimeMinutes => (accumulatedSeconds ~/ 60) % 60;
+  int get runtimeSeconds => accumulatedSeconds % 60;
 }
