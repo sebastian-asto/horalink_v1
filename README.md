@@ -1,5 +1,7 @@
 # HoraLink V1
 
+![HoraLink BLE: aplicación y prototipo](docs/images/horalink_ble_banner.png)
+
 HoraLink es un horómetro autónomo de un canal basado en ESP32-C3. Registra en
 memoria no volátil el tiempo durante el cual permanece activo el equipo
 monitoreado, funciona normalmente en deep sleep y entrega la lectura a una
@@ -47,6 +49,12 @@ en NVS.
 
 ## Hardware utilizado
 
+<p align="center">
+  <img src="docs/images/horalink_ble_product.png"
+       alt="Prototipo HoraLink BLE"
+       width="480">
+</p>
+
 | Dispositivo o señal | Conexión |
 |---|---|
 | Cristal RTC de 32.768 kHz | GPIO0 y GPIO1 |
@@ -58,6 +66,65 @@ en NVS.
 
 SDA y SCL requieren pull-up externos a 3.3 V. Los pull-up internos del ESP32-C3
 están desactivados en el firmware.
+
+## Consumo medido
+
+Las mediciones se realizaron a 4.2 V pocos segundos después de entrar en
+deep sleep. El consumo estable depende del estado eléctrico del canal:
+
+| Condición | Captura | Valor de referencia |
+|---|---:|---:|
+| Canal apagado, deep sleep | 47.09 µA | 47 µA |
+| Canal encendido, deep sleep | 93.36 µA en la captura inicial | 110 µA conservadores después de repetir la medición |
+| Despertar por transición | Picos de aproximadamente 20 a 35 mA | Evento transitorio, no consumo permanente |
+
+<p align="center">
+  <img src="docs/images/consumption_channel_off_47ua.png"
+       alt="Consumo de HoraLink BLE con el canal apagado: 47.09 microamperios"
+       width="49%">
+  <img src="docs/images/consumption_channel_on_93ua.png"
+       alt="Consumo de HoraLink BLE con el canal encendido: 93.36 microamperios en la captura inicial"
+       width="49%">
+</p>
+
+La siguiente captura muestra la secuencia completa: PCB energizada con el canal
+apagado, encendido del canal y posterior apagado. Los bloques de corriente alta
+corresponden al arranque del ESP32-C3 para procesar y guardar cada transición;
+después de cada evento el equipo vuelve a deep sleep.
+
+![Secuencia de consumo durante las transiciones del canal](docs/images/consumption_transition_sequence.png)
+
+### Estimación de autonomía
+
+La batería instalada tiene una capacidad nominal de 3000 mAh. Para evitar una
+estimación optimista se reserva el 30 % de esa capacidad:
+
+```text
+Capacidad útil = 3000 mAh × 0.70 = 2100 mAh
+```
+
+Si `D` es la fracción de tiempo durante la cual el canal permanece encendido,
+el consumo medio de deep sleep se aproxima mediante:
+
+```text
+I_promedio = 47 × (1 − D) + 110 × D  [µA]
+Autonomía = 2100 / (I_promedio / 1000) / 24 / 365.25  [años]
+```
+
+| Tiempo con el canal encendido | Consumo medio estimado | Autonomía teórica |
+|---:|---:|---:|
+| 0 % | 47.00 µA | 5.10 años |
+| 25 % | 62.75 µA | 3.82 años |
+| 50 % | 78.50 µA | 3.05 años |
+| 75 % | 94.25 µA | 2.54 años |
+| 100 % | 110.00 µA | 2.18 años |
+
+Estas cifras ya utilizan únicamente los **2100 mAh útiles**. Son estimaciones
+teóricas del consumo estable y no incluyen autodescarga, envejecimiento,
+temperatura, variaciones entre baterías, pérdidas del circuito de alimentación,
+despertares por transiciones ni sesiones BLE de consulta/configuración. La
+autonomía real será menor y deberá validarse con una prueba prolongada del
+prototipo.
 
 ## Datos BLE
 
