@@ -49,11 +49,24 @@ en NVS.
 
 ## Hardware utilizado
 
-<p align="center">
-  <img src="docs/images/horalink_ble_product.png"
-       alt="Prototipo HoraLink BLE"
-       width="480">
-</p>
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/images/horalink_ble_product.png"
+           alt="Prototipo HoraLink BLE"
+           width="100%">
+      <br>
+      <strong>Prototipo HoraLink BLE</strong>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/images/pcb_top.png"
+           alt="Vista superior de la PCB HoraLink BLE"
+           width="100%">
+      <br>
+      <strong>PCB HoraLink BLE — vista superior</strong>
+    </td>
+  </tr>
+</table>
 
 | Dispositivo o señal | Conexión |
 |---|---|
@@ -145,9 +158,17 @@ Firmware:
 
 ```text
 cd horalink_V1_esp32c3
+idf.py fullclean
+idf.py reconfigure
 idf.py build
-idf.py -p COM10 flash monitor
+idf.py -p PUERTO_SERIE flash monitor
 ```
+
+`PUERTO_SERIE` debe reemplazarse por el puerto asignado en cada computadora;
+por ejemplo, `COM7` en Windows, `/dev/ttyUSB0` en Linux o
+`/dev/cu.usbserial-*` en macOS. Si solo hay un dispositivo compatible
+conectado, ESP-IDF también puede detectarlo al ejecutar
+`idf.py flash monitor` sin indicar `-p`.
 
 Aplicación Android:
 

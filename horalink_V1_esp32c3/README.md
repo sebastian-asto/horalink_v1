@@ -5,6 +5,42 @@ consumo. Mantiene el ESP32-C3 en deep sleep, conserva el tiempo mediante el RTC
 con cristal externo, guarda las transiciones en NVS y transmite una instantánea
 por publicidad BLE cuando se pulsa el botón.
 
+## Hardware y PCB
+
+La PCB integra el ESP32-C3, el cristal RTC externo de 32.768 kHz, el monitor de
+batería MAX17048, la entrada aislada del canal, el pulsador de consulta, la
+carga USB y el soporte para una batería de 3000 mAh.
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="../docs/images/pcb_top.png"
+           alt="Vista superior de la PCB HoraLink BLE"
+           width="100%">
+      <br>
+      <strong>Vista superior</strong>
+    </td>
+    <td align="center" width="50%">
+      <img src="../docs/images/pcb_bottom.png"
+           alt="Vista inferior de la PCB HoraLink BLE con batería"
+           width="100%">
+      <br>
+      <strong>Vista inferior y batería</strong>
+    </td>
+  </tr>
+</table>
+
+### Vista explotada del ensamble
+
+La vista explotada muestra la relación entre las dos piezas de la carcasa, la
+PCB, la batería y los elementos mecánicos de fijación.
+
+<p align="center">
+  <img src="../docs/images/horalink_exploded_view.png"
+       alt="Vista explotada del ensamble HoraLink BLE"
+       width="800">
+</p>
+
 ## Mapa de pines
 
 | Señal de la PCB | Pin | Dirección | Función |
@@ -160,14 +196,41 @@ Requisitos:
 Compilar:
 
 ```text
+idf.py fullclean
+idf.py reconfigure
 idf.py build
 ```
 
-Grabar y abrir el monitor, sustituyendo el puerto cuando sea necesario:
+`fullclean` elimina los artefactos de una compilación anterior y `reconfigure`
+regenera la configuración de CMake para el entorno ESP-IDF instalado. Se
+recomienda ejecutar ambos comandos después de clonar el repositorio, cambiar de
+versión de ESP-IDF o mover el proyecto entre computadoras. No es necesario
+repetirlos antes de cada compilación normal; después puede utilizarse solamente
+`idf.py build`.
+
+Grabar y abrir el monitor:
 
 ```text
-idf.py -p COM10 flash monitor
+idf.py -p PUERTO_SERIE flash monitor
 ```
+
+Reemplaza `PUERTO_SERIE` por el puerto real de la placa, por ejemplo:
+
+```text
+# Windows
+idf.py -p COM7 flash monitor
+
+# Linux
+idf.py -p /dev/ttyUSB0 flash monitor
+
+# macOS
+idf.py -p /dev/cu.usbserial-0001 flash monitor
+```
+
+En Windows puede consultarse en **Administrador de dispositivos → Puertos
+(COM y LPT)**. En Linux y macOS puede compararse la lista de dispositivos
+serie antes y después de conectar la placa. Si ESP-IDF detecta una sola placa,
+también puede intentarse `idf.py flash monitor` sin el parámetro `-p`.
 
 La compilación verificada genera `build/horalink_V1_esp32c3.bin`. La tabla de
 particiones contiene NVS, `otadata`, dos slots OTA de 1856 KiB, `phy_init` y
