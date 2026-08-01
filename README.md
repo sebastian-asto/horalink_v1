@@ -8,6 +8,41 @@ monitoreado, funciona normalmente en deep sleep y entrega la lectura a una
 aplicación Android mediante publicidad BLE y permite una configuración GATT
 temporal autorizada con el botón físico.
 
+## EasyEDA Spark 2026
+
+**HoraLink-BLE participa en [EasyEDA Spark 2026](https://oshwlab.com/recommend/easyeda-spark-2026) y está patrocinado por [EasyEDA](https://easyeda.com/).** El proyecto se comparte como hardware abierto a través de [OSHWLab](https://oshwlab.com/).
+
+<p align="center">
+  <a href="https://oshwlab.com/recommend/easyeda-spark-2026">
+    <img src="docs/images/easyeda-spark-2026.png"
+         alt="EasyEDA Spark 2026 Open-Source PCB Design Competition"
+         width="850">
+  </a>
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center" width="50%">
+      <a href="https://easyeda.com/">
+        <img src="docs/images/easyeda-logo.png"
+             alt="EasyEDA"
+             height="64">
+      </a>
+      <br>
+      <strong>Patrocinado por EasyEDA</strong>
+    </td>
+    <td align="center" width="50%">
+      <a href="https://oshwlab.com/">
+        <img src="docs/images/oshwlab-logo.png"
+             alt="OSHWLab"
+             height="72">
+      </a>
+      <br>
+      <strong>Publicado en OSHWLab</strong>
+    </td>
+  </tr>
+</table>
+
 ## Estructura del proyecto
 
 | Carpeta | Contenido |
